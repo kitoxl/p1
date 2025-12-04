@@ -1,5 +1,5 @@
 import express from "express";
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import { createServer } from "http";
 import { dirname, join } from "path";
 import { Server } from "socket.io";
@@ -11,6 +11,24 @@ import bodyParser from "body-parser";
 import { currentPath, loadProxies, loadUserAgents } from "./fileLoader";
 import { AttackMethod } from "./lib";
 import { filterProxies } from "./proxyUtils";
+
+// Check if node_modules exists with required dependencies
+function checkDependencies() {
+  const nodeModulesPath = join(__dirname, "..", "node_modules");
+  const socksAgentPath = join(nodeModulesPath, "socks-proxy-agent");
+
+  if (!existsSync(nodeModulesPath) || !existsSync(socksAgentPath)) {
+    console.error(
+      "\n❌ ERROR: Required dependencies are not installed!\n" +
+      "Please run: npm install\n" +
+      "Then start the server with: npm run dev\n"
+    );
+    process.exit(1);
+  }
+}
+
+// Check dependencies on startup
+checkDependencies();
 
 // Define the workers based on attack type
 const attackWorkers: { [key in AttackMethod]: string } = {
