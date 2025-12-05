@@ -74,13 +74,13 @@ function ConfigureProxiesAndAgentsView({ onClose }: { onClose: () => void }) {
         <textarea
           value={configuration[0]}
           className="w-full h-40 p-2 border rounded mb-2"
-          onChange={(e) => setConfiguration([e.target.value, configuration[1]])}
+          onChange={(e: any) => setConfiguration([e.target.value, configuration[1]])}
         />
         <p className="italic mb-1">uas.txt</p>
         <textarea
           value={configuration[1]}
           className="w-full h-40 p-2 border rounded mb-2"
-          onChange={(e) => setConfiguration([configuration[0], e.target.value])}
+          onChange={(e: any) => setConfiguration([configuration[0], e.target.value])}
         />
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="px-3 py-2 rounded border">
@@ -123,13 +123,14 @@ export default function App(): JSX.Element {
     }
   });
 
-  const [selectedPreset, setSelectedPreset] = useState<string>("");
+  // const [selectedPreset, setSelectedPreset] = useState<string>("");
   const [showConfig, setShowConfig] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
 
   const [clientSpecs, setClientSpecs] = useState<any>(null);
   const [serverSpecs, setServerSpecs] = useState<any>(null);
+  const [serverConnected, setServerConnected] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -145,7 +146,8 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     socket.on("stats", (data: any) => {
-      setStats((old) => ({
+      setServerConnected(true);
+      setStats((old: any) => ({
         pps: data.pps ?? old.pps,
         bots: data.bots ?? old.bots,
         totalPackets: data.totalPackets ?? old.totalPackets,
@@ -153,9 +155,13 @@ export default function App(): JSX.Element {
       if (data.log) addLog(data.log);
     });
     socket.on("attackEnd", () => setIsAttacking(false));
+    socket.on("connect", () => setServerConnected(true));
+    socket.on("disconnect", () => setServerConnected(false));
     return () => {
       socket.off("stats");
       socket.off("attackEnd");
+      socket.off("connect");
+      socket.off("disconnect");
     };
   }, []);
 
@@ -165,9 +171,9 @@ export default function App(): JSX.Element {
   }, []);
 
   const addLog = (message: string) =>
-    setLogs((p) => [message, ...p].slice(0, 100));
+    setLogs((p: any) => [message, ...p].slice(0, 100));
 
-  const startAttack = (isQuick?: boolean) => {
+  const startAttack = (_isQuick?: boolean) => {
     if (!target.trim()) {
       alert("Please enter a target!");
       return;
@@ -203,7 +209,7 @@ export default function App(): JSX.Element {
       };
       const next = [
         newPreset,
-        ...presets.filter((p) => p.name !== name),
+        ...presets.filter((p: any) => p.name !== name),
       ].slice(0, 20);
       setPresets(next);
       try {
@@ -215,16 +221,17 @@ export default function App(): JSX.Element {
     }
   }
 
-  function applyPreset(name: string) {
-    const p = presets.find((x) => x.name === name);
-    if (!p) return;
-    setAttackMethod(p.attackMethod);
-    setPacketSize(p.packetSize);
-    setDuration(p.duration);
-    setPacketDelay(p.packetDelay);
-    setTarget(p.target || "");
-    setSelectedPreset(name);
-  }
+  // Uncomment if needed:
+  // function applyPreset(name: string) {
+  //   const p = presets.find((x: any) => x.name === name);
+  //   if (!p) return;
+  //   setAttackMethod(p.attackMethod);
+  //   setPacketSize(p.packetSize);
+  //   setDuration(p.duration);
+  //   setPacketDelay(p.packetDelay);
+  //   setTarget(p.target || "");
+  //   setSelectedPreset(name);
+  // }
 
   async function fetchHistory() {
     try {
@@ -238,6 +245,18 @@ export default function App(): JSX.Element {
     }
   }
 
+  async function shutdownServer() {
+    const confirm = window.confirm("Are you sure you want to shutdown the server?");
+    if (!confirm) return;
+    try {
+      await fetch("/shutdown", { method: "POST" });
+      alert("Server shutdown initiated");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to shutdown server");
+    }
+  }
+
   return (
     <div
       className={`w-screen min-h-screen p-8 bg-gradient-to-br ${
@@ -247,11 +266,20 @@ export default function App(): JSX.Element {
       <audio ref={audioRef} src="/audio.mp3" />
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-pink-500">Miku Miku Beam</h1>
-            <p className="text-sm text-gray-500">
-              Real-time visualizer & controller (demo)
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+              ♫
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-pink-500">Miku Miku Beam</h1>
+              <p className="text-sm text-gray-500">
+                Network Stress Testing Tool
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-auto mr-4">
+              <div className={`w-3 h-3 rounded-full ${serverConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+              <span className="text-xs font-medium">{serverConnected ? 'Connected' : 'Offline'}</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -269,10 +297,17 @@ export default function App(): JSX.Element {
               History
             </button>
             <button
-              onClick={() => setDarkMode((d) => !d)}
+              onClick={() => setDarkMode((d: any) => !d)}
               className="px-3 py-2 rounded border"
             >
               {darkMode ? "Light" : "Dark"}
+            </button>
+            <button
+              onClick={shutdownServer}
+              className="px-3 py-2 rounded bg-red-600 text-white text-sm"
+              title="Shutdown the server"
+            >
+              Shutdown
             </button>
           </div>
         </header>
@@ -376,15 +411,15 @@ export default function App(): JSX.Element {
         </section>
 
         <section className="grid grid-cols-3 gap-4">
-          <div className="p-4 rounded bg-white dark:bg-gray-900 shadow">
-            <div className="text-sm text-pink-600 flex items-center gap-2">
+          <div className={`p-4 rounded shadow transition-all ${isAttacking ? 'bg-gradient-to-br from-pink-500 to-pink-600 text-white animate-pulse' : 'bg-white dark:bg-gray-900'}`}>
+            <div className={`text-sm flex items-center gap-2 ${isAttacking ? 'text-white' : 'text-pink-600'}`}>
               <Zap className="w-4 h-4" />
               Packets/sec
             </div>
             <div className="text-2xl font-bold">{stats.pps.toLocaleString()}</div>
           </div>
-          <div className="p-4 rounded bg-white dark:bg-gray-900 shadow">
-            <div className="text-sm text-pink-600 flex items-center gap-2">
+          <div className={`p-4 rounded shadow transition-all ${isAttacking ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white animate-pulse' : 'bg-white dark:bg-gray-900'}`}>
+            <div className={`text-sm flex items-center gap-2 ${isAttacking ? 'text-white' : 'text-pink-600'}`}>
               <Bot className="w-4 h-4" />
               Active Bots
             </div>
@@ -392,8 +427,8 @@ export default function App(): JSX.Element {
               {stats.bots.toLocaleString()}
             </div>
           </div>
-          <div className="p-4 rounded bg-white dark:bg-gray-900 shadow">
-            <div className="text-sm text-pink-600 flex items-center gap-2">
+          <div className={`p-4 rounded shadow transition-all ${isAttacking ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 text-white animate-pulse' : 'bg-white dark:bg-gray-900'}`}>
+            <div className={`text-sm flex items-center gap-2 ${isAttacking ? 'text-white' : 'text-pink-600'}`}>
               <Wifi className="w-4 h-4" />
               Total Packets
             </div>

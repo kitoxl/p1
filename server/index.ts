@@ -236,6 +236,15 @@ app.post("/configuration", bodyParser.json(), (req, res) => {
   res.send("OK");
 });
 
+// Shutdown endpoint
+app.post("/shutdown", (req, res) => {
+  res.send("Shutting down server...");
+  console.log("Shutdown request received. Closing server...");
+  setTimeout(() => {
+    process.exit(0);
+  }, 500);
+});
+
 const PORT = parseInt(process.env.PORT || "3000");
 httpServer.listen(PORT, () => {
   if (__prod) {
